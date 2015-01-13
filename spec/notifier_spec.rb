@@ -38,5 +38,4 @@ describe GelfLogger::Notifier do
       end
     end
   end
-
 end

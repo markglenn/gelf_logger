@@ -21,10 +21,10 @@ describe GelfLogger::MessageSerializer do
     end
 
     it 'splits large messages' do
-      result = serializer.chunk_bytes( ( 'a' * ( GelfLogger::Notifier::MAX_DATAGRAM_SIZE + 1 ) ).bytes )
+      result = serializer.chunk_bytes( ( 'a' * ( GelfLogger::MAX_DATAGRAM_SIZE + 1 ) ).bytes )
       expect( result.count ).to eq 2
 
-      expect( result[ 0 ][ 12..-1 ] ).to eq 'a' * GelfLogger::Notifier::MAX_DATAGRAM_SIZE
+      expect( result[ 0 ][ 12..-1 ] ).to eq 'a' * GelfLogger::MAX_DATAGRAM_SIZE
       expect( result[ 1 ][ 12..-1 ] ).to eq 'a'
 
       # Sets the GELF magic bytes
