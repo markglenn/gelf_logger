@@ -1,4 +1,4 @@
-require "gelf_logger/version"
+require 'gelf_logger/version'
 require 'gelf_logger/notifier'
 require 'gelf_logger/sender'
 require 'gelf_logger/message_serializer'

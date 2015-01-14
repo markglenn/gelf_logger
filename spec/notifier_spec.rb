@@ -2,15 +2,15 @@ require 'spec_helper'
 require 'oj'
 
 describe GelfLogger::Notifier do
-  let(:notifier){ GelfLogger::Notifier.new('test.example.com', 12345) }
-  let(:sender){ GelfLogger::Sender.new('test.example.com', 12345) }
+  let(:notifier) { GelfLogger::Notifier.new('test.example.com', 123) }
+  let(:sender) { GelfLogger::Sender.new('test.example.com', 123) }
 
   before do
     notifier.sender = sender
   end
 
   describe 'generate_message' do
-    let(:hash){ notifier.send(:generate_message, 'Hello World') }
+    let(:hash) { notifier.send(:generate_message, 'Hello World', Logger::INFO) }
 
     it 'sets version to default' do
       expect(hash[:version]).to eq GelfLogger::SPEC_VERSION
@@ -32,15 +32,35 @@ describe GelfLogger::Notifier do
     end
 
     context 'hash' do
-      let(:hash){ notifier.send(:generate_message, { hello: 'world' }) }
+      let(:hash) { notifier.send(:generate_message, { short_message: 'world' }, Logger::INFO) }
 
       it 'uses given hash' do
-        expect(hash[:hello]).to eq 'world'
+        expect(hash[:short_message]).to eq 'world'
       end
 
       it 'does not overwrite given parameters' do
-        hash = notifier.send(:generate_message, { host: 'test.example.com' })
+        hash = notifier.send(:generate_message, { host: 'test.example.com' }, Logger::INFO)
         expect(hash[:host]).to eq 'test.example.com'
+      end
+
+      it 'handles unknown keys by adding underscore' do
+        hash = notifier.send(:generate_message, { line: 123 }, Logger::INFO)
+        expect(hash[:_line]).to eq 123
+      end
+
+      it 'does not modify known keys' do
+        hash = notifier.send(
+          :generate_message,
+          {
+            short_message: 'My message',
+            full_message: 'Full message'
+          },
+          Logger::INFO
+        )
+
+        GelfLogger::Notifier::VALID_GELF_KEYS.each do |key|
+          expect(hash[key.to_sym]).to_not be_nil
+        end
       end
     end
   end
@@ -90,9 +110,49 @@ describe GelfLogger::Notifier do
         expect(message['short_message']).to eq('test')
       end
 
-      notifier.add(Logger::INFO) do
-        'test'
+      notifier.info { 'test' }
+    end
+
+    it 'sets progname to facility if not given' do
+      expect(sender).to receive(:send) do |datagrams|
+        message = unpack_message(datagrams)
+        expect(message['_facility']).to eq('my-program')
       end
+
+      notifier.default_options[:facility] = 'my-program'
+      notifier.info 'test'
+    end
+
+    it 'uses hash if given' do
+      expect(sender).to receive(:send) do |datagrams|
+        message = unpack_message(datagrams)
+        expect(message['short_message']).to eq('Hello World')
+        expect(message['full_message']).to eq('This is a test')
+      end
+
+      notifier.info do
+        {
+          short_message: 'Hello World',
+          full_message: 'This is a test'
+        }
+      end
+    end
+  end
+
+  describe 'max_chunk_size=' do
+    it 'sets chunk size to 1420 when set to wan' do
+      notifier.max_chunk_size = 'wan'
+      expect(notifier.max_chunk_size).to eq 1420
+    end
+
+    it 'sets chunk size to 8154 when set to lan' do
+      notifier.max_chunk_size = 'lan'
+      expect(notifier.max_chunk_size).to eq 8154
+    end
+
+    it 'sets chunk size to value given' do
+      notifier.max_chunk_size = 123
+      expect(notifier.max_chunk_size).to eq 123
     end
   end
 end
