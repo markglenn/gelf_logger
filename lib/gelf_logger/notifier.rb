@@ -6,6 +6,7 @@ module GelfLogger
     attr_accessor :default_options
     attr_accessor :message_serializer
     attr_accessor :level
+    attr_accessor :sender
 
     SEVERITY_MAP = {
       DEBUG   => 0,
@@ -16,18 +17,18 @@ module GelfLogger
       UNKNOWN => 5
     }
 
-    def initialize
+    def initialize(host, port)
       @default_options = {
         version: SPEC_VERSION,
         host: Socket.gethostname
       }
 
       @message_serializer = MessageSerializer.new
+      @sender = Sender.new(host, port)
       @level = DEBUG
     end
 
-    def add( severity, message = nil, progname = nil, &block )
-      # TODO: Check severity
+    def add(severity, message = nil, progname = nil, &block)
       severity ||= UNKNOWN
 
       return true if severity < @level
@@ -43,24 +44,27 @@ module GelfLogger
 
       message = generate_message({
         short_message: message,
-        level: SEVERITY_MAP[ severity ]
+        level: SEVERITY_MAP[severity]
       })
 
-      raise message.inspect
+      bytes = @message_serializer.deflate_message(message)
+      datagrams = @message_serializer.chunk_bytes(bytes)
+      sender.send(datagrams)
+
       true
     end
 
   private
 
-    def generate_message( object )
+    def generate_message(object)
       hash = if object.respond_to? :to_hash
                object.to_hash
              else
                { short_message: object }
              end
 
-      hash = @default_options.merge( hash )
-      hash[ :timestamp ] ||= Time.now.utc.to_f
+      hash = @default_options.merge(hash)
+      hash[:timestamp] ||= Time.now.utc.to_f
 
       hash
     end

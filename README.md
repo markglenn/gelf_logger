@@ -1,5 +1,6 @@
 # GelfLogger
 
+Work In Progress.
 TODO: Write a gem description
 
 ## Installation
