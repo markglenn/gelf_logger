@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'json'
 
 describe GelfLogger::MessageSerializer do
   let(:serializer) { GelfLogger::MessageSerializer.new }
@@ -9,7 +10,7 @@ describe GelfLogger::MessageSerializer do
 
       result = serializer.deflate_message(message)
       deserialized_message = Zlib::Inflate.inflate(result.to_a.pack('C*'))
-      expect(Oj.dump(message, mode: :compat)).to eq(deserialized_message)
+      expect(JSON.dump(message)).to eq(deserialized_message)
     end
   end
 

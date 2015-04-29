@@ -1,4 +1,5 @@
 require 'atomic'
+require 'json'
 
 module GelfLogger
   class MessageSerializer
@@ -6,7 +7,7 @@ module GelfLogger
     @last_message_id = Atomic.new(0)
 
     def deflate_message(message)
-      Zlib::Deflate.deflate(Oj.dump(message, mode: :compat)).bytes
+      Zlib::Deflate.deflate(JSON.dump(message)).bytes
     end
 
     def chunk_bytes(data)

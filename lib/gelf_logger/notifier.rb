@@ -1,4 +1,3 @@
-require 'oj'
 require 'logger'
 
 module GelfLogger
@@ -27,7 +26,8 @@ module GelfLogger
     def initialize(host, port, default_options = {})
       @default_options = {
         version: SPEC_VERSION,
-        host: Socket.gethostname
+        host: Socket.gethostname,
+        facility: 'gelf_logger'
       }.merge( default_options )
 
       @message_serializer = MessageSerializer.new
@@ -47,19 +47,7 @@ module GelfLogger
         end
       end
 
-      send_message(message, progname, severity)
-    end
-
-    def send_message(message, progname, severity)
-      message = generate_message(message, SEVERITY_MAP[severity])
-      message[:_facility] ||= progname
-
-      datagrams = @message_serializer.chunk_bytes(
-        @message_serializer.deflate_message(message)
-      )
-      sender.send(datagrams)
-
-      true
+      send_message(severity, progname, message)
     end
 
     def max_chunk_size=(size)
@@ -74,7 +62,31 @@ module GelfLogger
         end
     end
 
+    def notify(*args)
+      send_message(nil, nil, *args)
+    end
+
+    def notify!(*args)
+      send_message(nil, nil, *args)
+    rescue SocketError, SystemCallError
+      # Silently ignore these errors for now
+    rescue Exception => exception
+      notify!(UNKNOWN, exception)
+    end
+
     private
+
+    def send_message(severity, progname, message)
+      message = generate_message(message, SEVERITY_MAP[severity])
+      message[:_facility] ||= progname
+
+      datagrams = @message_serializer.chunk_bytes(
+        @message_serializer.deflate_message(message)
+      )
+      sender.send(datagrams)
+
+      true
+    end
 
     def generate_message(object, severity)
       hash = if object.respond_to? :to_hash

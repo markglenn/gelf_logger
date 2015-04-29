@@ -1,5 +1,4 @@
 require 'spec_helper'
-require 'oj'
 
 describe GelfLogger::Notifier do
   let(:notifier) { GelfLogger::Notifier.new('test.example.com', 123) }
@@ -7,6 +6,11 @@ describe GelfLogger::Notifier do
 
   before do
     notifier.sender = sender
+  end
+
+  def unpack_message(datagrams)
+    deserialized_message = Zlib::Inflate.inflate(datagrams[0])
+    JSON.parse(deserialized_message)
   end
 
   describe 'generate_message' do
@@ -66,11 +70,6 @@ describe GelfLogger::Notifier do
   end
 
   describe 'add' do
-    def unpack_message(datagrams)
-      deserialized_message = Zlib::Inflate.inflate(datagrams[0])
-      Oj.load(deserialized_message)
-    end
-
     it 'sends a simple message' do
       expect(sender).to receive(:send)
       notifier.info('test')
@@ -153,6 +152,24 @@ describe GelfLogger::Notifier do
     it 'sets chunk size to value given' do
       notifier.max_chunk_size = 123
       expect(notifier.max_chunk_size).to eq 123
+    end
+  end
+
+  describe 'notify' do
+    it 'does not change log level' do
+      expect(sender).to receive(:send) do |datagrams|
+        message = unpack_message(datagrams)
+        expect(message['level']).to eq(5)
+      end
+      notifier.notify({level: 5})
+    end
+
+    it 'does not change facility' do
+      expect(sender).to receive(:send) do |datagrams|
+        message = unpack_message(datagrams)
+        expect(message['_facility']).to eq('test facility')
+      end
+      notifier.notify({facility: 'test facility'})
     end
   end
 end
