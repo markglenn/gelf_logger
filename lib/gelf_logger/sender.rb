@@ -8,7 +8,7 @@ module GelfLogger
 
     def send(datagrams)
       datagrams.each do |datagram|
-        @socket.send(datagram, @host, @port)
+        @socket.send(datagram, 0, @host, @port)
       end
     end
   end
